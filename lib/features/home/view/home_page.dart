@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:ui'; // Added for Offset, Size, etc.
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart'; // Added for haptics
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
 
@@ -397,6 +398,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                  for (var p in _particles) {
                    p.currentTargetPosition = p.initialRingPosition;
                  }
+                 HapticFeedback.mediumImpact(); // Add haptic feedback
                });
              } else {
                // If not animating, tap near center to activate
@@ -409,6 +411,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                    for (var p in _particles) {
                      p.currentTargetPosition = p.finalOrbitTargetPosition;
                    }
+                   HapticFeedback.mediumImpact(); // Add haptic feedback
                  });
                }
              }
