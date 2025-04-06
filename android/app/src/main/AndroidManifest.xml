@@ -1,4 +1,10 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Required for flutter_sound -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+    <!-- Optional: Needed for some codecs / storage options -->
+    <!-- <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" /> -->
+    <!-- <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" /> -->
+
     <application
         android:label="${appName}"
         android:name="${applicationName}"

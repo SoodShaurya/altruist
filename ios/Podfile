@@ -39,5 +39,22 @@ end
 post_install do |installer|
   installer.pods_project.targets.each do |target|
     flutter_additional_ios_build_settings(target)
+    target.build_configurations.each do |config|
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
+        '$(inherited)',
+        ## dart: PermissionGroup.microphone
+        # 'PERMISSION_MICROPHONE=1', # Already handled by plugin based on Info.plist
+
+        ## dart: PermissionGroup.camera
+        # 'PERMISSION_CAMERA=1', # Already handled by plugin based on Info.plist
+
+        ## dart: PermissionGroup.photos
+        # 'PERMISSION_PHOTOS=1',
+      ]
+      # Add the specific permissions if needed, though usually handled by the plugin
+      # based on Info.plist entries. Adding them here might be redundant but fulfills the request.
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'PERMISSION_MICROPHONE=1'
+      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] << 'PERMISSION_CAMERA=1'
+    end
   end
 end
