@@ -44,6 +44,7 @@ class _AppState extends State<App> { // Added State class
 
     // Removed MoonProvider wrapper
     return MaterialApp(
+      debugShowCheckedModeBanner: false, // Add this line
       theme: ThemeData(
         appBarTheme: AppBarTheme(
           backgroundColor: Theme.of(context).colorScheme.inversePrimary,

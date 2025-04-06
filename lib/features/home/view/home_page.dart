@@ -349,10 +349,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // --- Updated _buildBodyContent with Visualiser ---
   Widget _buildBodyContent() {
     // Content behind the panel - Now the Visualiser
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final Size size = constraints.biggest; // Get the size from LayoutBuilder
-        final Offset center = Offset(size.width / 2, size.height / 2);
+    // Add bottom padding to push the LayoutBuilder up
+    return Padding( // <--- Add Padding
+      padding: const EdgeInsets.only(bottom: 250.0), // Adjust padding value as needed
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final Size size = constraints.biggest;
+          final Offset center = Offset(size.width / 2, size.height / 2);
 
         // Update the center state variable after the first frame and if it changes
         // This ensures _updateParticles and gesture handlers have the correct center.
@@ -429,8 +432,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
            ),
          );
       },
-    );
-  }
+    ),
+  );
+}
   // --- End Updated _buildBodyContent ---
 }
 
