@@ -1,3 +1,4 @@
+import 'package:altruist/features/visualiser/view/visualiser_page.dart'; // Import the new page
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
@@ -197,7 +198,21 @@ class _HomePageState extends State<HomePage> {
               'tap to connect', // Text from the sketch
                style: TextStyle(color: Colors.grey, fontSize: 14),
              ),
-             const SizedBox(height: 40.0), // Add space below the text
+             const SizedBox(height: 20.0), // Add space below the text
+             ElevatedButton(
+               onPressed: () {
+                 Navigator.push(
+                   context,
+                   MaterialPageRoute(builder: (context) => const VisualiserPage()),
+                 );
+               },
+               style: ElevatedButton.styleFrom(
+                 backgroundColor: const Color(0xFF2A2A2A), // Button background
+                 foregroundColor: Colors.white, // Text color
+               ),
+               child: const Text('Open Visualiser'),
+             ),
+             const SizedBox(height: 20.0), // Add some space after the button
              // Removed Spacer
           ],
         ),
