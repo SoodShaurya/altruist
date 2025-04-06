@@ -11,7 +11,7 @@ const String _apiKey = 'e4c91b7fdf1d785a034ab20e720afeb0230ee7e3';
 
 // Deepgram WebSocket URL with desired parameters
 const String _dgUrl =
-    'wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&language=en-US&interim_results=true&vad_events=true&endpointing=300';
+    'wss://api.deepgram.com/v1/listen?encoding=linear16&sample_rate=16000&language=en-US&interim_results=true&vad_events=true&endpointing=300&voiso=true';
     // encoding=linear16: Matches mic_stream output
     // sample_rate=16000: Matches mic_stream output
     // language=en-US: Target language

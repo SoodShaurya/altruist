@@ -5,7 +5,7 @@ import 'dart:math'; // For VAD calculation
 
 import 'package:altruist/services/elevenlabs/elevenlabs_service.dart';
 // import 'package:altruist/elevenlabs/elevenlabs_stt_service.dart'; // No longer needed
-import 'package:altruist/services/google/google_stt_service.dart'; // Import Google STT service
+// import 'package:altruist/services/google/google_stt_service.dart'; // Removed Google STT service
 import 'package:altruist/services/gemini/gemini_pro_service.dart'; // Import Gemini Pro service
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
@@ -36,7 +36,7 @@ class _TtsViewState extends State<TtsView> {
   final _voiceIdController =
       TextEditingController(); // Controller for voice ID input
   final _elevenLabsService = ElevenLabsService();
-  final _sttService = GoogleSttService(); // Use the new Google STT service
+  // final _sttService = GoogleSttService(); // Removed Google STT service
   final _geminiProService =
       GeminiProService(); // Instantiate Gemini Pro service
   final _screenshotController =
@@ -394,10 +394,16 @@ class _TtsViewState extends State<TtsView> {
 
     // --- 1. Transcribe Audio ---
     // State is already processing_stt
+    // NOTE: STT Service was removed, this section needs reimplementation
+    // if STT is required in this view again. For now, we'll skip it.
     try {
-      transcription = await _sttService.transcribeAudio(audioFilePath);
+      // transcription = await _sttService.transcribeAudio(audioFilePath); // Removed call
+      // Simulate transcription failure for now as STT is not available here
+      transcription = null; // Assume transcription failed
+      debugPrint('STT Service removed, skipping transcription step.');
+
       if (transcription == null || transcription.isEmpty) {
-        debugPrint('Transcription failed or returned empty.');
+        debugPrint('Transcription failed or returned empty (STT service removed).');
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             const SnackBar(content: Text('Speech-to-text failed.')),

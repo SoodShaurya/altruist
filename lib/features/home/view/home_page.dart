@@ -106,13 +106,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   final _voiceIdController = TextEditingController(); // For voice ID input
   final _elevenLabsService = ElevenLabsService();
   final _sttService = DeepgramSttService(); // Use the new Deepgram STT service
-  final _geminiProService = GeminiProService(); // Instantiate Gemini Pro service
-  final _screenshotController = ScreenshotController(); // Add screenshot controller
+  final _geminiProService =
+      GeminiProService(); // Instantiate Gemini Pro service
+  final _screenshotController =
+      ScreenshotController(); // Add screenshot controller
 
   AppState _appState = AppState.idle;
   StreamSubscription<Uint8List>? _micStreamSubscription;
   StreamSubscription<void>? _playbackCompleteSubscription;
-  StreamSubscription<Map<String, dynamic>>? _deepgramSubscription; // Subscription for Deepgram results
+  StreamSubscription<Map<String, dynamic>>?
+      _deepgramSubscription; // Subscription for Deepgram results
   String _currentTranscript = ""; // To hold interim transcript
 
   // --- VAD/Buffering related state REMOVED ---
@@ -255,11 +258,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         });
         // Only restart listening if the animation is still active
         if (_isAnimating) {
-           _startListening(); // Go back to listening
+          _startListening(); // Go back to listening
         }
       }
     });
-     debugPrint("Audio listener initialized.");
+    debugPrint("Audio listener initialized.");
   }
 
   // --- Permission Handling (using permission_handler) ---
@@ -283,9 +286,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   Future<void> _startListening() async {
     // Prevent starting if not idle, or already listening, or not animating
-    if (_appState != AppState.idle || _micStreamSubscription != null || !_isAnimating) {
-       debugPrint("Cannot start listening. State: $_appState, Animating: $_isAnimating, Sub: ${_micStreamSubscription != null}");
-       return;
+    if (_appState != AppState.idle ||
+        _micStreamSubscription != null ||
+        !_isAnimating) {
+      debugPrint(
+          "Cannot start listening. State: $_appState, Animating: $_isAnimating, Sub: ${_micStreamSubscription != null}");
+      return;
     }
 
     debugPrint("Attempting to start listening...");
@@ -321,7 +327,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
             const SnackBar(content: Text('Could not access microphone.')),
           );
         }
-        setStateIfMounted(() { _appState = AppState.idle; });
+        setStateIfMounted(() {
+          _appState = AppState.idle;
+        });
         return;
       }
 
@@ -331,30 +339,34 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         debugPrint("Failed to connect to Deepgram.");
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Could not connect to transcription service.')),
+            const SnackBar(
+                content: Text('Could not connect to transcription service.')),
           );
         }
-        setStateIfMounted(() { _appState = AppState.idle; });
+        setStateIfMounted(() {
+          _appState = AppState.idle;
+        });
         return; // Don't start mic if Deepgram failed
       }
 
       // Listen to Deepgram responses
-      _deepgramSubscription = _sttService.transcriptStream.listen(
-        _handleDeepgramResponse,
-        onError: (error) {
-           debugPrint("Deepgram stream error: $error");
-           // Handle error appropriately, maybe show snackbar, reset state
-           setStateIfMounted(() { _appState = AppState.idle; });
-           _stopListening(); // Stop everything on Deepgram error
-        },
-        onDone: () {
-           debugPrint("Deepgram stream closed.");
-           // Handle closure if needed, maybe reset state if unexpected
-           if (mounted && _appState != AppState.idle) {
-              setStateIfMounted(() { _appState = AppState.idle; });
-           }
+      _deepgramSubscription = _sttService.transcriptStream
+          .listen(_handleDeepgramResponse, onError: (error) {
+        debugPrint("Deepgram stream error: $error");
+        // Handle error appropriately, maybe show snackbar, reset state
+        setStateIfMounted(() {
+          _appState = AppState.idle;
+        });
+        _stopListening(); // Stop everything on Deepgram error
+      }, onDone: () {
+        debugPrint("Deepgram stream closed.");
+        // Handle closure if needed, maybe reset state if unexpected
+        if (mounted && _appState != AppState.idle) {
+          setStateIfMounted(() {
+            _appState = AppState.idle;
+          });
         }
-      );
+      });
 
       // Now start the mic stream
       _micStreamSubscription = stream.listen(
@@ -362,7 +374,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         onError: (error) {
           debugPrint("Mic stream error: $error");
           _stopListening(); // Stop everything (mic and deepgram) on error
-          setStateIfMounted(() { _appState = AppState.idle; });
+          setStateIfMounted(() {
+            _appState = AppState.idle;
+          });
           if (mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(content: Text('Microphone error: $error')),
@@ -373,7 +387,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           debugPrint("Mic stream closed.");
           if (mounted && _appState == AppState.listening) {
             _stopListening(); // Ensure cleanup if stream closes unexpectedly
-            setStateIfMounted(() { _appState = AppState.idle; });
+            setStateIfMounted(() {
+              _appState = AppState.idle;
+            });
           }
         },
         cancelOnError: true,
@@ -385,8 +401,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         // _speechBuffer.clear(); // REMOVED
         // _speechStartTime = null; // REMOVED
       });
-       debugPrint("Listening started (Mic stream and Deepgram connected).");
-
+      debugPrint("Listening started (Mic stream and Deepgram connected).");
     } catch (e) {
       debugPrint("Error initializing mic stream: $e");
       if (mounted) {
@@ -394,13 +409,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           SnackBar(content: Text('Failed to initialize microphone: $e')),
         );
       }
-      setStateIfMounted(() { _appState = AppState.idle; });
+      setStateIfMounted(() {
+        _appState = AppState.idle;
+      });
     }
   }
 
   // Now stops both mic stream and Deepgram connection
   Future<void> _stopListening() async {
-    if (_micStreamSubscription == null && !_sttService.isConnected) return; // Already stopped
+    if (_micStreamSubscription == null && !_sttService.isConnected)
+      return; // Already stopped
 
     debugPrint("Stopping listening (Mic stream and Deepgram connection)...");
 
@@ -429,13 +447,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
   // Process incoming audio chunks - Now just sends to Deepgram
   void _handleMicData(Uint8List data) {
-    if (!mounted || !_isAnimating || !_sttService.isConnected) return; // Only process if animating and connected
+    if (!mounted || !_isAnimating || !_sttService.isConnected)
+      return; // Only process if animating and connected
 
     // Barge-in logic
     if (_appState == AppState.speaking_tts) {
       // Calculate RMS just for barge-in detection
       double rms = _calculateRMSForBargeIn(data);
-      if (rms > 0.01) { // Use a simple threshold for barge-in
+      if (rms > 0.01) {
+        // Use a simple threshold for barge-in
         debugPrint("Barge-in detected!");
         // --- Ensure UI/Service calls run on the platform thread ---
         WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -464,17 +484,17 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // Minimal RMS calculation specifically for barge-in detection threshold
   // Could be replaced with simpler energy check if preferred
   double _calculateRMSForBargeIn(Uint8List audioData) {
-     double sum = 0;
-     if (audioData.isEmpty) return 0.0;
-     // Assuming 16-bit PCM
-     for (int i = 0; i < audioData.lengthInBytes; i += 2) {
-       int sample = (audioData[i + 1] << 8) | audioData[i];
-       if (sample > 32767) sample -= 65536; // Convert to signed 16-bit
-       double normalizedSample = sample / 32768.0; // Normalize
-       sum += normalizedSample * normalizedSample;
-     }
-     double rms = sqrt(sum / (audioData.lengthInBytes / 2));
-     return rms;
+    double sum = 0;
+    if (audioData.isEmpty) return 0.0;
+    // Assuming 16-bit PCM
+    for (int i = 0; i < audioData.lengthInBytes; i += 2) {
+      int sample = (audioData[i + 1] << 8) | audioData[i];
+      if (sample > 32767) sample -= 65536; // Convert to signed 16-bit
+      double normalizedSample = sample / 32768.0; // Normalize
+      sum += normalizedSample * normalizedSample;
+    }
+    double rms = sqrt(sum / (audioData.lengthInBytes / 2));
+    return rms;
   }
 
   // --- Handler for Deepgram Stream Responses ---
@@ -498,13 +518,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           if (speechFinal) {
             // End of utterance detected by Deepgram
             debugPrint("Deepgram final transcript: $_currentTranscript");
-            if (_appState == AppState.listening) { // Only process if we were listening
-               setStateIfMounted(() {
-                 _appState = AppState.processing_gemini; // Go straight to Gemini
-                 _textController.text += "You: ${_currentTranscript.trim()}\n"; // Update log
-               });
-               _transcribeAndGenerateResponse(_currentTranscript.trim()); // Trigger Gemini/TTS
-               _currentTranscript = ""; // Reset for next utterance
+            if (_appState == AppState.listening) {
+              // Only process if we were listening
+              setStateIfMounted(() {
+                _appState = AppState.processing_gemini; // Go straight to Gemini
+                _textController.text +=
+                    "You: ${_currentTranscript.trim()}\n"; // Update log
+              });
+              _transcribeAndGenerateResponse(
+                  _currentTranscript.trim()); // Trigger Gemini/TTS
+              _currentTranscript = ""; // Reset for next utterance
             }
           }
         } else {
@@ -522,22 +545,26 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       debugPrint("Deepgram detected utterance end.");
       // This might be redundant if using speech_final, but good for logging
     } else if (type == 'Error') {
-       debugPrint("Deepgram Error: ${response['reason']}");
-       // Handle error - maybe show snackbar, stop listening
-       if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(content: Text('Transcription error: ${response['reason']}')),
-          );
-          _stopListening();
-          setStateIfMounted(() { _appState = AppState.idle; });
-       }
+      debugPrint("Deepgram Error: ${response['reason']}");
+      // Handle error - maybe show snackbar, stop listening
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Transcription error: ${response['reason']}')),
+        );
+        _stopListening();
+        setStateIfMounted(() {
+          _appState = AppState.idle;
+        });
+      }
     } else if (type == 'Disconnected') {
-       debugPrint("Deepgram disconnected notification received.");
-       // Handle potential unexpected disconnect
-       if (mounted && _appState != AppState.idle) {
-          _stopListening();
-          setStateIfMounted(() { _appState = AppState.idle; });
-       }
+      debugPrint("Deepgram disconnected notification received.");
+      // Handle potential unexpected disconnect
+      if (mounted && _appState != AppState.idle) {
+        _stopListening();
+        setStateIfMounted(() {
+          _appState = AppState.idle;
+        });
+      }
     }
   }
 
@@ -548,7 +575,6 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // _createWavHeader removed
   // _deleteTempFile removed
 
-
   // --- Modified Transcribe/Generate/Speak methods ---
 
   // Modified to accept final transcript string directly, removed STT part
@@ -556,22 +582,30 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     // Check if component is still mounted and animation is active
     // (Processing might have started just before user tapped to stop animation)
     if (!mounted || !_isAnimating) {
-      debugPrint("Transcription/Generation cancelled: Not mounted or not animating.");
-      setStateIfMounted(() { _appState = AppState.idle; });
+      debugPrint(
+          "Transcription/Generation cancelled: Not mounted or not animating.");
+      setStateIfMounted(() {
+        _appState = AppState.idle;
+      });
       // File deletion handled in _processBufferedAudio's finally block
       return;
     }
     // Check STT service (already checked in original, good practice)
-     if (_sttService == null) { // Should be initialized, but check anyway
-       debugPrint("Transcription/Generation cancelled: STT service is null.");
-       setStateIfMounted(() { _appState = AppState.idle; });
-       if (_isAnimating) _startListening(); // Restart if still animating
-       return;
-     }
+    if (_sttService == null) {
+      // Should be initialized, but check anyway
+      debugPrint("Transcription/Generation cancelled: STT service is null.");
+      setStateIfMounted(() {
+        _appState = AppState.idle;
+      });
+      if (_isAnimating) _startListening(); // Restart if still animating
+      return;
+    }
 
     // STT part is now handled by Deepgram stream before calling this function
-    debugPrint("Starting generation pipeline for final transcript: $finalTranscription");
-    String transcription = finalTranscription; // Use the provided final transcript
+    debugPrint(
+        "Starting generation pipeline for final transcript: $finalTranscription");
+    String transcription =
+        finalTranscription; // Use the provided final transcript
     Uint8List? screenshotBytes;
 
     // --- 1. Transcribe Audio --- REMOVED ---
@@ -581,12 +615,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     // --- 2. Capture Screenshot ---
     try {
       screenshotBytes = await _screenshotController.capture();
-       if (!mounted || !_isAnimating) return; // Re-check after async
+      if (!mounted || !_isAnimating) return; // Re-check after async
 
       if (screenshotBytes == null) {
         debugPrint('Screenshot capture failed.');
       } else {
-        debugPrint('Screenshot captured successfully (${screenshotBytes.lengthInBytes} bytes).');
+        debugPrint(
+            'Screenshot captured successfully (${screenshotBytes.lengthInBytes} bytes).');
       }
     } catch (e) {
       debugPrint('Error capturing screenshot: $e');
@@ -596,81 +631,90 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     // --- 3. Generate Content with Gemini Pro ---
     // State should already be processing_gemini (set in _handleDeepgramResponse)
     if (mounted && _isAnimating && transcription.isNotEmpty) {
-       // setStateIfMounted(() { _appState = AppState.processing_gemini; }); // State already set
-       String? geminiResponseText;
+      // setStateIfMounted(() { _appState = AppState.processing_gemini; }); // State already set
+      String? geminiResponseText;
 
-       try {
-         if (screenshotBytes != null) {
-           // Screenshot available
-           geminiResponseText = await _geminiProService.generateContentWithImage(
-             textPrompt: transcription,
-             imageBytes: screenshotBytes,
-           );
-         } else {
-           // Fallback: Screenshot failed, use text-only (or just speak transcription)
-           // For now, let's assume we want to speak *something*, even if Gemini fails
-           // If you have a text-only Gemini call, put it here.
-           // Otherwise, we'll just speak the transcription later if geminiResponseText is null.
-           debugPrint("Screenshot failed, attempting text-only generation or fallback.");
-           // Example: geminiResponseText = await _geminiProService.generateContent(textPrompt: transcription);
-         }
+      try {
+        if (screenshotBytes != null) {
+          // Screenshot available
+          geminiResponseText = await _geminiProService.generateContentWithImage(
+            textPrompt: transcription,
+            imageBytes: screenshotBytes,
+          );
+        } else {
+          // Fallback: Screenshot failed, use text-only (or just speak transcription)
+          // For now, let's assume we want to speak *something*, even if Gemini fails
+          // If you have a text-only Gemini call, put it here.
+          // Otherwise, we'll just speak the transcription later if geminiResponseText is null.
+          debugPrint(
+              "Screenshot failed, attempting text-only generation or fallback.");
+          // Example: geminiResponseText = await _geminiProService.generateContent(textPrompt: transcription);
+        }
 
-         if (!mounted || !_isAnimating) return; // Re-check after async
+        if (!mounted || !_isAnimating) return; // Re-check after async
 
-         if (geminiResponseText != null && geminiResponseText.isNotEmpty) {
-           debugPrint('Gemini Pro response: $geminiResponseText');
-           // Update conversation log
-           setStateIfMounted(() {
-             _textController.text += "AI: $geminiResponseText\n";
-           });
-           await _speakResponse(geminiResponseText); // Wait for speak to potentially finish/fail
-         } else {
-           // Gemini failed or returned empty, maybe speak transcription as fallback?
-           debugPrint('Gemini Pro returned empty or null response. Speaking transcription as fallback.');
-           // Update log to indicate fallback
-           setStateIfMounted(() {
-             _textController.text += "(AI failed, speaking transcription)\n";
-           });
-           await _speakResponse(transcription); // Speak original transcription
-         }
-       } catch (e) {
-         debugPrint('Error during Gemini Pro call: $e');
-         if (mounted) {
-           ScaffoldMessenger.of(context).showSnackBar(
-             SnackBar(content: Text('Error communicating with AI: $e')),
-           );
-           // Fallback: Speak transcription if AI fails
-           setStateIfMounted(() {
-             _textController.text += "(AI error, speaking transcription)\n";
-             _appState = AppState.idle; // Reset state before speaking fallback
-           });
-           await _speakResponse(transcription); // Speak original transcription
-         }
-       }
+        if (geminiResponseText != null && geminiResponseText.isNotEmpty) {
+          debugPrint('Gemini Pro response: $geminiResponseText');
+          // Update conversation log
+          setStateIfMounted(() {
+            _textController.text += "AI: $geminiResponseText\n";
+          });
+          await _speakResponse(
+              geminiResponseText); // Wait for speak to potentially finish/fail
+        } else {
+          // Gemini failed or returned empty, maybe speak transcription as fallback?
+          debugPrint(
+              'Gemini Pro returned empty or null response. Speaking transcription as fallback.');
+          // Update log to indicate fallback
+          setStateIfMounted(() {
+            _textController.text += "(AI failed, speaking transcription)\n";
+          });
+          await _speakResponse(transcription); // Speak original transcription
+        }
+      } catch (e) {
+        debugPrint('Error during Gemini Pro call: $e');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text('Error communicating with AI: $e')),
+          );
+          // Fallback: Speak transcription if AI fails
+          setStateIfMounted(() {
+            _textController.text += "(AI error, speaking transcription)\n";
+            _appState = AppState.idle; // Reset state before speaking fallback
+          });
+          await _speakResponse(transcription); // Speak original transcription
+        }
+      }
     } else {
       // Handle cases where transcription failed or component unmounted/inactive
-      debugPrint("Transcription missing or component unmounted/inactive, cannot proceed.");
+      debugPrint(
+          "Transcription missing or component unmounted/inactive, cannot proceed.");
       if (mounted) {
-        setStateIfMounted(() { _appState = AppState.idle; });
+        setStateIfMounted(() {
+          _appState = AppState.idle;
+        });
         if (_isAnimating) _startListening(); // Restart if still animating
       }
     }
-     // Final file cleanup happens in _processBufferedAudio's finally block
+    // Final file cleanup happens in _processBufferedAudio's finally block
   }
-
 
   // Speak the provided text using TTS
   Future<void> _speakResponse(String text) async {
     // Only speak if still mounted and animating
     if (!mounted || !_isAnimating) {
-       debugPrint("Speak cancelled: Not mounted or not animating.");
-       setStateIfMounted(() { _appState = AppState.idle; });
-       // Don't restart listening here, let the completion handler or tap handle it
-       return;
+      debugPrint("Speak cancelled: Not mounted or not animating.");
+      setStateIfMounted(() {
+        _appState = AppState.idle;
+      });
+      // Don't restart listening here, let the completion handler or tap handle it
+      return;
     }
     debugPrint("Speaking response: $text");
 
-    setStateIfMounted(() { _appState = AppState.speaking_tts; });
+    setStateIfMounted(() {
+      _appState = AppState.speaking_tts;
+    });
 
     try {
       await _elevenLabsService.speak(text);
@@ -683,7 +727,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           SnackBar(content: Text('Error during TTS: $e')),
         );
         // If TTS fails, go back to idle and potentially restart listening
-        setStateIfMounted(() { _appState = AppState.idle; });
+        setStateIfMounted(() {
+          _appState = AppState.idle;
+        });
         if (_isAnimating) _startListening();
       }
     }
@@ -713,7 +759,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           elevation: 0,
           leading: IconButton(
             icon: const Icon(Icons.menu, color: accentColor),
-            onPressed: () { /* TODO: Implement */ },
+            onPressed: () {/* TODO: Implement */},
           ),
           title: const Text(
             'altruist',
@@ -726,14 +772,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           actions: [
             IconButton(
               icon: const Icon(Icons.person_outline, color: accentColor),
-              onPressed: () { /* TODO: Implement */ },
+              onPressed: () {/* TODO: Implement */},
             ),
           ],
         ),
         body: SlidingUpPanel(
           controller: _panelController,
           minHeight: 100,
-          maxHeight: MediaQuery.of(context).size.height * 0.7, // Increased max height for log
+          maxHeight: MediaQuery.of(context).size.height *
+              0.7, // Increased max height for log
           parallaxEnabled: true,
           parallaxOffset: .5,
           color: panelColor,
@@ -772,8 +819,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           mainAxisAlignment: MainAxisAlignment.start,
           children: [
             Padding(
-              padding: const EdgeInsets.only(
-                  left: 25.0, right: 25.0, top: 20.0),
+              padding:
+                  const EdgeInsets.only(left: 25.0, right: 25.0, top: 20.0),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
@@ -845,7 +892,10 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         ),
       ),
       // Use ListView for potentially long content
-      child: ListView( // Changed from Column to ListView
+      child: ListView(
+        physics:
+            const NeverScrollableScrollPhysics(), // Disable internal scrolling
+        // Changed from Column to ListView
         padding: const EdgeInsets.symmetric(horizontal: 20.0, vertical: 15.0),
         children: [
           // Header Row (Unchanged)
@@ -864,12 +914,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
               Row(
                 children: [
                   IconButton(
-                    icon: const Icon(Icons.widgets_outlined, color: accentColor),
-                    onPressed: () { /* TODO: Implement */ },
+                    icon:
+                        const Icon(Icons.widgets_outlined, color: accentColor),
+                    onPressed: () {/* TODO: Implement */},
                   ),
                   IconButton(
                     icon: const Icon(Icons.inbox_outlined, color: accentColor),
-                    onPressed: () { /* TODO: Implement */ },
+                    onPressed: () {/* TODO: Implement */},
                   ),
                 ],
               ),
@@ -910,7 +961,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           const SizedBox(height: 25), // Spacing
 
           // --- Voice ID Input (from tts_view.dart) ---
-          Text('ElevenLabs Voice', style: theme.textTheme.titleMedium?.copyWith(color: accentColor)),
+          Text('ElevenLabs Voice',
+              style: theme.textTheme.titleMedium?.copyWith(color: accentColor)),
           const SizedBox(height: 8),
           Row(
             children: [
@@ -927,9 +979,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                       borderRadius: BorderRadius.circular(12.0),
                       borderSide: BorderSide.none, // No border
                     ),
-                    focusedBorder: OutlineInputBorder( // Border when focused
+                    focusedBorder: OutlineInputBorder(
+                      // Border when focused
                       borderRadius: BorderRadius.circular(12.0),
-                      borderSide: const BorderSide(color: accentColor, width: 1.0),
+                      borderSide:
+                          const BorderSide(color: accentColor, width: 1.0),
                     ),
                   ),
                 ),
@@ -946,14 +1000,15 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                     FocusScope.of(context).unfocus(); // Hide keyboard
                   }
                 },
-                 style: ElevatedButton.styleFrom(
-                   backgroundColor: selectedButtonColor, // Button color
-                   foregroundColor: accentColor, // Text color
-                   shape: RoundedRectangleBorder(
-                     borderRadius: BorderRadius.circular(12.0),
-                   ),
-                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                 ),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: selectedButtonColor, // Button color
+                  foregroundColor: accentColor, // Text color
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12.0),
+                  ),
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                ),
                 child: const Text('Set'),
               ),
             ],
@@ -963,7 +1018,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           const SizedBox(height: 25), // Spacing
 
           // --- Conversation Log (from tts_view.dart) ---
-          Text('Conversation Log', style: theme.textTheme.titleMedium?.copyWith(color: accentColor)),
+          Text('Conversation Log',
+              style: theme.textTheme.titleMedium?.copyWith(color: accentColor)),
           const SizedBox(height: 8),
           TextField(
             controller: _textController,
@@ -978,11 +1034,11 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                 borderRadius: BorderRadius.circular(12.0),
                 borderSide: BorderSide.none,
               ),
-              contentPadding: const EdgeInsets.all(12.0), // Padding inside the text field
+              contentPadding:
+                  const EdgeInsets.all(12.0), // Padding inside the text field
             ),
           ),
           // --- End Conversation Log ---
-
         ],
       ),
     );
@@ -991,17 +1047,20 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // Modified to use mic_stream start/stop logic
   Widget _buildBodyContent() {
     return Padding(
-      padding: const EdgeInsets.only(bottom: 100.0), // Keep padding below panel minHeight
+      padding: const EdgeInsets.only(
+          bottom: 220.0), // Keep padding below panel minHeight
       child: LayoutBuilder(
         builder: (context, constraints) {
           final Size size = constraints.biggest;
           final Offset center = Offset(size.width / 2, size.height / 2);
 
           WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted && (_center == null || (_center! - center).distance > 1.0)) {
+            if (mounted &&
+                (_center == null || (_center! - center).distance > 1.0)) {
               final bool needsInitialPositioning = _particles.isNotEmpty &&
                   _particles[0].position == _particles[0].initialRingPosition;
-              setStateIfMounted(() { // Use safe setState
+              setStateIfMounted(() {
+                // Use safe setState
                 _center = center;
                 if (needsInitialPositioning) {
                   for (var p in _particles) {
@@ -1035,13 +1094,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   // _silenceTimer?.cancel(); // REMOVED
                   // _speechStartTime = null; // REMOVED
                 });
-                 debugPrint("Animation stopped, listening stopped.");
+                debugPrint("Animation stopped, listening stopped.");
               } else {
                 // --- Activate Animation and Start Audio ---
                 final tapPos = details.localPosition;
                 final distanceToCenter = (tapPos - _center!).distance;
                 if (distanceToCenter < _activationTapRadius) {
-                   debugPrint("Activating animation and starting audio...");
+                  debugPrint("Activating animation and starting audio...");
                   setStateIfMounted(() {
                     _isAnimating = true;
                     for (var p in _particles) {
@@ -1054,18 +1113,27 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
                   });
                   // Start listening AFTER setting state
                   _startListening(); // Use the mic_stream start method
-                   debugPrint("Animation started, listening initiated.");
+                  debugPrint("Animation started, listening initiated.");
                 }
               }
             },
             onPanStart: (details) {
-              if (_isAnimating) setStateIfMounted(() { _touchPosition = details.localPosition; });
+              if (_isAnimating)
+                setStateIfMounted(() {
+                  _touchPosition = details.localPosition;
+                });
             },
             onPanUpdate: (details) {
-              if (_isAnimating) setStateIfMounted(() { _touchPosition = details.localPosition; });
+              if (_isAnimating)
+                setStateIfMounted(() {
+                  _touchPosition = details.localPosition;
+                });
             },
             onPanEnd: (details) {
-              if (_isAnimating) setStateIfMounted(() { _touchPosition = null; });
+              if (_isAnimating)
+                setStateIfMounted(() {
+                  _touchPosition = null;
+                });
             },
             child: CustomPaint(
               size: size,
