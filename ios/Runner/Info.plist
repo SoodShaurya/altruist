@@ -31,6 +31,8 @@
 	<string>$(FLUTTER_BUILD_NUMBER)</string>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSCameraUsageDescription</key>
+	<string>Camera access is required to capture photos to send with your speech.</string>
 	<key>NSMicrophoneUsageDescription</key>
 	<string>Microphone access is required for Al to hear you</string>
 	<key>UIApplicationSupportsIndirectInputEvents</key>

@@ -33,7 +33,7 @@ class GeminiProService {
 
       // Define the system instruction
       const systemInstruction =
-          "You are a helpful assistant. Briefly respond to the following user query, considering the context from the provided image if relevant. Don't mention the image unless the user explicitly asks you for something relating to it.";
+          "You are a helpful assistant. Briefly respond to the following user query, considering the context from the provided image if relevant.";
       final systemPart = TextPart(systemInstruction);
 
       // Create the user's text part

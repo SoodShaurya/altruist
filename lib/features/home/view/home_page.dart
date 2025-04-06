@@ -14,6 +14,7 @@ import 'package:flutter/services.dart'; // Added for haptics
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:mic_stream/mic_stream.dart'; // Use mic_stream
 // import 'package:path_provider/path_provider.dart'; // Removed, not needed for Deepgram streaming
+import 'package:camera/camera.dart'; // Added for camera
 import 'package:permission_handler/permission_handler.dart';
 import 'package:screenshot/screenshot.dart';
 import 'package:sliding_up_panel/sliding_up_panel.dart';
@@ -72,6 +73,12 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       PanelController(); // Controller for the panel
   RecordingOption _selectedRecordingOption =
       RecordingOption.screenRecording; // State for segmented button
+
+  // --- Camera State ---
+  CameraController? _cameraController;
+  List<CameraDescription> _cameras = [];
+  bool _isCameraInitialized = false; // Track camera initialization status
+  // --- End Camera State ---
 
   // --- Copied state from _VisualiserPageState ---
   late AnimationController _controller;
@@ -143,6 +150,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     // TTS/STT Init (mic_stream based)
     _voiceIdController.text = _elevenLabsService.voiceId; // Init voice ID field
     _initAudio(); // Initialize audio permissions and listeners
+    _initializeCamera(); // Initialize camera
   }
 
   // Merged dispose
@@ -158,9 +166,101 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     _playbackCompleteSubscription?.cancel();
     _sttService.dispose(); // Dispose Deepgram service
     // _elevenLabsService.dispose(); // No dispose method
+    _cameraController?.dispose(); // Dispose camera controller
 
     super.dispose();
   }
+
+  // --- Camera Initialization ---
+  Future<void> _initializeCamera() async {
+    debugPrint("[CameraInit] Starting camera initialization...");
+    // 1. Request Camera Permission
+    debugPrint("[CameraInit] Requesting camera permission...");
+    var cameraStatus = await Permission.camera.request();
+    debugPrint("[CameraInit] Camera permission status: $cameraStatus");
+    if (cameraStatus != PermissionStatus.granted) {
+      debugPrint('[CameraInit] Camera permission denied.');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Camera permission is required.')),
+        );
+      }
+      return; // Don't proceed if permission denied
+    }
+    debugPrint('[CameraInit] Camera permission granted.');
+
+    // 2. Get Available Cameras
+    try {
+      debugPrint("[CameraInit] Getting available cameras...");
+      _cameras = await availableCameras();
+      debugPrint("[CameraInit] Found ${_cameras.length} cameras.");
+      if (_cameras.isEmpty) {
+        debugPrint('[CameraInit] No cameras found on this device.');
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('No cameras available.')),
+          );
+        }
+        return;
+      }
+
+      // 3. Find the Back Camera
+      CameraDescription? backCamera;
+      debugPrint("[CameraInit] Searching for back camera...");
+      try {
+        backCamera = _cameras.firstWhere(
+          (camera) => camera.lensDirection == CameraLensDirection.back,
+        );
+         debugPrint("[CameraInit] Back camera found: ${backCamera.name}");
+      } catch (e) {
+        debugPrint('[CameraInit] Back camera not found, using first available camera.');
+        backCamera = _cameras.first; // Fallback to the first camera
+         debugPrint("[CameraInit] Using fallback camera: ${backCamera.name}");
+      }
+
+      // 4. Initialize Controller
+       debugPrint("[CameraInit] Initializing CameraController...");
+      _cameraController = CameraController(
+        backCamera,
+        ResolutionPreset.low, // Use low preset as no preview is needed
+        enableAudio: false, // We only need images
+      );
+
+      await _cameraController!.initialize();
+       debugPrint("[CameraInit] CameraController.initialize() completed.");
+      if (!mounted) {
+         debugPrint("[CameraInit] Component unmounted after initialize(), aborting.");
+         return;
+      }
+
+      setStateIfMounted(() {
+        _isCameraInitialized = true;
+      });
+      debugPrint('[CameraInit] Camera initialized successfully. _isCameraInitialized set to true.');
+    } on CameraException catch (e) {
+      debugPrint('[CameraInit] Error initializing camera: ${e.code} - ${e.description}');
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Failed to initialize camera: ${e.description}')),
+        );
+      }
+      setStateIfMounted(() {
+        _isCameraInitialized = false;
+      });
+    } catch (e) {
+      debugPrint('[CameraInit] Unexpected error initializing camera: $e');
+       if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('An unexpected error occurred initializing the camera.')),
+        );
+      }
+       setStateIfMounted(() {
+        _isCameraInitialized = false;
+      });
+    }
+  }
+  // --- End Camera Initialization ---
+
 
   // --- Copied methods from _VisualiserPageState (Unchanged) ---
   void _initializeParticles() {
@@ -606,27 +706,72 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         "Starting generation pipeline for final transcript: $finalTranscription");
     String transcription =
         finalTranscription; // Use the provided final transcript
-    Uint8List? screenshotBytes;
+    Uint8List? imageBytes; // Will hold either screenshot or camera photo bytes
 
     // --- 1. Transcribe Audio --- REMOVED ---
     // Transcription is already done and passed as argument.
     // Log update was moved to _handleDeepgramResponse
 
-    // --- 2. Capture Screenshot ---
-    try {
-      screenshotBytes = await _screenshotController.capture();
-      if (!mounted || !_isAnimating) return; // Re-check after async
+    // --- 2. Capture Image (Screenshot or Camera Photo) ---
+     debugPrint("[CaptureImage] Checking image capture conditions...");
+     debugPrint("[CaptureImage] _isCameraEnabled: $_isCameraEnabled");
+    if (_isCameraEnabled) { // Check if the master toggle is enabled
+       debugPrint("[CaptureImage] Image capture is enabled by toggle.");
+       debugPrint("[CaptureImage] _selectedRecordingOption: $_selectedRecordingOption");
+      if (_selectedRecordingOption == RecordingOption.camera) {
+        // --- Capture Camera Photo ---
+         debugPrint("[CaptureImage] Camera option selected.");
+         debugPrint("[CaptureImage] _isCameraInitialized: $_isCameraInitialized");
+         debugPrint("[CaptureImage] _cameraController != null: ${_cameraController != null}");
+         if (_cameraController != null) {
+            debugPrint("[CaptureImage] _cameraController.value.isTakingPicture: ${_cameraController!.value.isTakingPicture}");
+         }
 
-      if (screenshotBytes == null) {
-        debugPrint('Screenshot capture failed.');
+        if (_isCameraInitialized && _cameraController != null && !_cameraController!.value.isTakingPicture) {
+          try {
+            debugPrint("[CaptureImage] Attempting to capture camera photo...");
+            final XFile imageFile = await _cameraController!.takePicture();
+             debugPrint("[CaptureImage] takePicture() completed.");
+             if (!mounted || !_isAnimating) {
+                debugPrint("[CaptureImage] Component unmounted or animation stopped after takePicture(), aborting image read.");
+                return;
+             }
+            imageBytes = await imageFile.readAsBytes();
+            debugPrint('[CaptureImage] Camera photo captured successfully (${imageBytes.lengthInBytes} bytes).');
+          } on CameraException catch (e) {
+             debugPrint('[CaptureImage] Error capturing camera photo: ${e.code} - ${e.description}');
+             // Proceed without image
+          } catch (e) {
+             debugPrint('[CaptureImage] Unexpected error capturing camera photo: $e');
+             // Proceed without image
+          }
+        } else {
+           debugPrint('[CaptureImage] Camera not ready or already taking picture, skipping photo capture.');
+        }
       } else {
-        debugPrint(
-            'Screenshot captured successfully (${screenshotBytes.lengthInBytes} bytes).');
+        // --- Capture Screenshot ---
+         debugPrint("[CaptureImage] Screen Recording option selected.");
+        try {
+          debugPrint("[CaptureImage] Attempting to capture screenshot...");
+          imageBytes = await _screenshotController.capture();
+          if (!mounted || !_isAnimating) return; // Re-check after async
+
+          if (imageBytes == null) {
+            debugPrint('Screenshot capture failed.');
+          } else {
+            debugPrint(
+                '[CaptureImage] Screenshot captured successfully (${imageBytes.lengthInBytes} bytes).');
+          }
+        } catch (e) {
+          debugPrint('[CaptureImage] Error capturing screenshot: $e');
+          // Proceed without image
+        }
       }
-    } catch (e) {
-      debugPrint('Error capturing screenshot: $e');
-      // Proceed without screenshot
+    } else {
+       debugPrint("[CaptureImage] Image capture disabled by toggle.");
+       // imageBytes remains null
     }
+
 
     // --- 3. Generate Content with Gemini Pro ---
     // State should already be processing_gemini (set in _handleDeepgramResponse)
@@ -635,19 +780,19 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       String? geminiResponseText;
 
       try {
-        if (screenshotBytes != null) {
-          // Screenshot available
+        if (imageBytes != null) {
+          // Image (screenshot or photo) available
+           debugPrint("[GeminiCall] Calling Gemini with image (${imageBytes.lengthInBytes} bytes)...");
           geminiResponseText = await _geminiProService.generateContentWithImage(
             textPrompt: transcription,
-            imageBytes: screenshotBytes,
+            imageBytes: imageBytes,
           );
         } else {
-          // Fallback: Screenshot failed, use text-only (or just speak transcription)
-          // For now, let's assume we want to speak *something*, even if Gemini fails
-          // If you have a text-only Gemini call, put it here.
-          // Otherwise, we'll just speak the transcription later if geminiResponseText is null.
-          debugPrint(
-              "Screenshot failed, attempting text-only generation or fallback.");
+          // No image available (disabled, failed capture, or text-only mode needed)
+          debugPrint("[GeminiCall] Calling Gemini without image (text-only fallback)...");
+          // TODO: Implement or confirm text-only Gemini call if desired
+          // For now, we'll let geminiResponseText remain null if no image,
+          // leading to the fallback logic below.
           // Example: geminiResponseText = await _geminiProService.generateContent(textPrompt: transcription);
         }
 
