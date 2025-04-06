@@ -5,12 +5,14 @@ import 'package:flutter/material.dart';
 class Particle {
   Offset position; // Current position
   Offset velocity; // Current velocity
-  final Offset homePosition; // Target position it's attracted to
+  final Offset originalHomePosition; // Original target position (relative to center)
+  Offset currentTargetPosition; // Current target position (relative to center, rotates)
   final Color color;
 
   Particle({
     required this.position,
-    required this.homePosition,
+    required this.originalHomePosition,
+    required this.currentTargetPosition,
     this.velocity = Offset.zero,
     this.color = Colors.white,
   });
@@ -28,7 +30,7 @@ class _VisualiserPageState extends State<VisualiserPage>
     with TickerProviderStateMixin {
   late AnimationController _controller;
   final List<Particle> _particles = [];
-  final int _numParticles = 200; // Increased particle count
+  final int _numParticles = 700; // Increased particle count
   final double _sphereRadius = 150.0; // Radius for particle home positions
   Offset? _touchPosition; // Current touch position
 
@@ -37,7 +39,8 @@ class _VisualiserPageState extends State<VisualiserPage>
   final double _repulsionStrength = 150.0; // Increased repulsion
   final double _repulsionRadius = 80.0; // Radius around touch for repulsion
   final double _damping = 0.95; // Slows down particles
-  final double _orbitStrength = 0.01; // Strength of the orbiting effect
+  double _rotationAngle = 0.0; // Current rotation angle for targets
+  final double _rotationSpeed = 0.005; // Speed of target rotation
 
   @override
   void initState() {
@@ -76,11 +79,14 @@ class _VisualiserPageState extends State<VisualiserPage>
       // Home position relative to center (will be added later)
       final homePos = Offset(x, y);
 
+      // REMOVED: Initial velocity calculation is no longer needed
+
       _particles.add(
         Particle(
           // Initial position is the home position
           position: homePos,
-          homePosition: homePos,
+          originalHomePosition: homePos, // Store the original relative position
+          currentTargetPosition: homePos, // Initially, target is the home position
           color: Colors.white.withOpacity(0.7 + random.nextDouble() * 0.3),
         ),
       );
@@ -93,12 +99,22 @@ class _VisualiserPageState extends State<VisualiserPage>
     final Size screenSize = MediaQuery.of(context).size;
     final Offset center = Offset(screenSize.width / 2, screenSize.height / 2);
 
+    // Update rotation angle
+    _rotationAngle += _rotationSpeed;
+
     for (var particle in _particles) {
-      // Calculate vector from current position to home position (relative to center)
-      final Offset homeVector =
-          (center + particle.homePosition) - particle.position;
-      // Attraction force towards home
-      Offset attractionForce = homeVector * _attractionStrength;
+      // Rotate the target position
+      final double cosA = cos(_rotationAngle);
+      final double sinA = sin(_rotationAngle);
+      final double rotatedX = particle.originalHomePosition.dx * cosA - particle.originalHomePosition.dy * sinA;
+      final double rotatedY = particle.originalHomePosition.dx * sinA + particle.originalHomePosition.dy * cosA;
+      particle.currentTargetPosition = Offset(rotatedX, rotatedY);
+
+      // Calculate vector from current position to the *current target* position (relative to center)
+      final Offset targetVector =
+          (center + particle.currentTargetPosition) - particle.position;
+      // Attraction force towards the current target
+      Offset attractionForce = targetVector * _attractionStrength;
 
       Offset repulsionForce = Offset.zero;
       if (_touchPosition != null) {
@@ -114,23 +130,9 @@ class _VisualiserPageState extends State<VisualiserPage>
         }
       }
 
-      // Calculate orbiting force (perpendicular to the vector from center)
-      final Offset vectorFromCenter = particle.position - center;
-      Offset orbitForce = Offset.zero;
-      if (vectorFromCenter.distanceSquared > 1e-4) { // Avoid division by zero/NaN
-         // Perpendicular vector (rotate 90 degrees)
-        final Offset perpendicular = Offset(-vectorFromCenter.dy, vectorFromCenter.dx);
-        // Normalize and scale by orbit strength and distance (faster orbit further out, adjust as needed)
-        final double orbitSpeedFactor = 1.0; // Could adjust this based on distance if desired
-        orbitForce = perpendicular.scale(
-          (_orbitStrength * orbitSpeedFactor) / perpendicular.distance,
-          (_orbitStrength * orbitSpeedFactor) / perpendicular.distance
-        );
-      }
-
-      // Update velocity (add orbitForce)
+      // Update velocity (No orbit force needed anymore)
       particle.velocity =
-          (particle.velocity + attractionForce + repulsionForce + orbitForce) * _damping;
+          (particle.velocity + attractionForce + repulsionForce) * _damping;
 
       // Update position
       particle.position += particle.velocity;
@@ -152,9 +154,9 @@ class _VisualiserPageState extends State<VisualiserPage>
     final Offset center = Offset(screenSize.width / 2, screenSize.height / 2);
 
     // Check if particles need initial absolute positioning (only once after build)
-    // We check if the first particle's position is still just its relative home position.
+    // We check if the first particle's position is still just its relative original home position.
     if (_particles.isNotEmpty &&
-        _particles[0].position == _particles[0].homePosition) {
+        _particles[0].position == _particles[0].originalHomePosition) {
       // Use addPostFrameCallback to position particles after the first frame is built
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) {
@@ -162,8 +164,8 @@ class _VisualiserPageState extends State<VisualiserPage>
           setState(() {
             // Calculate the absolute initial position based on the actual center
             for (var p in _particles) {
-              // Set the initial position relative to the screen center
-              p.position = center + p.homePosition;
+              // Set the initial position relative to the screen center using the original home position
+              p.position = center + p.originalHomePosition;
             }
           });
         }
@@ -222,18 +224,20 @@ class VisualiserPainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()..style = PaintingStyle.fill;
-    const double maxSize = 3.5; // Max size for particles near center
-    const double minSize = 1.0; // Min size for particles near edge
+    const double maxSize = 1.1; // Max size for particles near center
+    const double minSize = 0.5; // Min size for particles near edge
 
     for (var particle in particles) {
       paint.color = particle.color;
 
-      // Calculate size based on distance from home position origin
-      final double distFromHomeOrigin = particle.homePosition.distance;
+      // Calculate size based on distance from the *original* home position origin
+      final double distFromHomeOrigin = particle.originalHomePosition.distance;
       // Normalize distance (0 at center, 1 at sphereRadius)
-      final double normalizedDist = (distFromHomeOrigin / sphereRadius).clamp(0.0, 1.0);
+      final double normalizedDist =
+          (distFromHomeOrigin / sphereRadius).clamp(0.0, 1.0);
       // Interpolate size: larger closer to center, smaller further out
-      final double particleSize = maxSize - (maxSize - minSize) * normalizedDist;
+      final double particleSize =
+          maxSize - (maxSize - minSize) * normalizedDist;
 
       // Draw particle at its current absolute position with calculated size
       canvas.drawCircle(particle.position, particleSize, paint);
