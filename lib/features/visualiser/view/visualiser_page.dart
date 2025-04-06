@@ -38,9 +38,11 @@ class _VisualiserPageState extends State<VisualiserPage>
   final double _attractionStrength = 0.02;
   final double _repulsionStrength = 150.0; // Increased repulsion
   final double _repulsionRadius = 80.0; // Radius around touch for repulsion
-  final double _damping = 0.95; // Slows down particles
+  final double _damping = 0.9; // Slows down particles (Reduced for less bounce)
   double _rotationAngle = 0.0; // Current rotation angle for targets
   final double _rotationSpeed = 0.005; // Speed of target rotation
+  final double _jitterStrength = 0.15; // How much random jitter to add
+  final Random _random = Random(); // Random number generator for jitter
 
   @override
   void initState() {
@@ -134,8 +136,13 @@ class _VisualiserPageState extends State<VisualiserPage>
       particle.velocity =
           (particle.velocity + attractionForce + repulsionForce) * _damping;
 
-      // Update position
+      // Update position based on velocity
       particle.position += particle.velocity;
+
+      // Add random jitter
+      final double jitterX = (_random.nextDouble() - 0.5) * 2 * _jitterStrength; // -jitterStrength to +jitterStrength
+      final double jitterY = (_random.nextDouble() - 0.5) * 2 * _jitterStrength; // -jitterStrength to +jitterStrength
+      particle.position += Offset(jitterX, jitterY);
     }
 
     // Trigger repaint
