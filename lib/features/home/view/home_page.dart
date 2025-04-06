@@ -106,6 +106,13 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   // Particle size constants
   static const double _maxSize = 1.1;
   static const double _minSize = 0.5;
+
+  // --- Audio Visualizer State ---
+  double _currentAudioLevel = 0.0; // Raw RMS from mic
+  double _smoothedAudioLevel = 0.0; // Smoothed level for animation
+  final double _smoothingFactor = 0.2; // Lower value = smoother, slower reaction
+  final double _sensitivityFactor = 1.5; // How much the radius expands
+  // --- End Audio Visualizer State ---
   // --- End Copied State ---
 
   // --- Added State from _TtsViewState (using mic_stream) ---
@@ -211,15 +218,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         backCamera = _cameras.firstWhere(
           (camera) => camera.lensDirection == CameraLensDirection.back,
         );
-         debugPrint("[CameraInit] Back camera found: ${backCamera.name}");
+        debugPrint("[CameraInit] Back camera found: ${backCamera.name}");
       } catch (e) {
-        debugPrint('[CameraInit] Back camera not found, using first available camera.');
+        debugPrint(
+            '[CameraInit] Back camera not found, using first available camera.');
         backCamera = _cameras.first; // Fallback to the first camera
-         debugPrint("[CameraInit] Using fallback camera: ${backCamera.name}");
+        debugPrint("[CameraInit] Using fallback camera: ${backCamera.name}");
       }
 
       // 4. Initialize Controller
-       debugPrint("[CameraInit] Initializing CameraController...");
+      debugPrint("[CameraInit] Initializing CameraController...");
       _cameraController = CameraController(
         backCamera,
         ResolutionPreset.low, // Use low preset as no preview is needed
@@ -227,21 +235,25 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       );
 
       await _cameraController!.initialize();
-       debugPrint("[CameraInit] CameraController.initialize() completed.");
+      debugPrint("[CameraInit] CameraController.initialize() completed.");
       if (!mounted) {
-         debugPrint("[CameraInit] Component unmounted after initialize(), aborting.");
-         return;
+        debugPrint(
+            "[CameraInit] Component unmounted after initialize(), aborting.");
+        return;
       }
 
       setStateIfMounted(() {
         _isCameraInitialized = true;
       });
-      debugPrint('[CameraInit] Camera initialized successfully. _isCameraInitialized set to true.');
+      debugPrint(
+          '[CameraInit] Camera initialized successfully. _isCameraInitialized set to true.');
     } on CameraException catch (e) {
-      debugPrint('[CameraInit] Error initializing camera: ${e.code} - ${e.description}');
+      debugPrint(
+          '[CameraInit] Error initializing camera: ${e.code} - ${e.description}');
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Failed to initialize camera: ${e.description}')),
+          SnackBar(
+              content: Text('Failed to initialize camera: ${e.description}')),
         );
       }
       setStateIfMounted(() {
@@ -249,18 +261,19 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       });
     } catch (e) {
       debugPrint('[CameraInit] Unexpected error initializing camera: $e');
-       if (mounted) {
+      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('An unexpected error occurred initializing the camera.')),
+          SnackBar(
+              content: Text(
+                  'An unexpected error occurred initializing the camera.')),
         );
       }
-       setStateIfMounted(() {
+      setStateIfMounted(() {
         _isCameraInitialized = false;
       });
     }
   }
   // --- End Camera Initialization ---
-
 
   // --- Copied methods from _VisualiserPageState (Unchanged) ---
   void _initializeParticles() {
@@ -305,15 +318,31 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
 
     if (_isAnimating) {
       _rotationAngle += _rotationSpeed;
+
+      // Determine the dynamic radius scaling factor based on smoothed audio level
+      // Only apply scaling when listening, otherwise return to normal radius
+      final double radiusScaleFactor = (_appState == AppState.listening)
+          ? (1.0 + _smoothedAudioLevel * _sensitivityFactor)
+          : 1.0; // Scale up based on audio level, or 1.0 if not listening
+
       for (var particle in _particles) {
         final double cosA = cos(_rotationAngle);
         final double sinA = sin(_rotationAngle);
-        final double rotatedX = particle.finalOrbitTargetPosition.dx * cosA -
-            particle.finalOrbitTargetPosition.dy * sinA;
-        final double rotatedY = particle.finalOrbitTargetPosition.dx * sinA +
-            particle.finalOrbitTargetPosition.dy * cosA;
+
+        // Apply the radius scaling factor to the original target position
+        final double targetX = particle.finalOrbitTargetPosition.dx * radiusScaleFactor;
+        final double targetY = particle.finalOrbitTargetPosition.dy * radiusScaleFactor;
+
+        // Rotate the scaled target position
+        final double rotatedX = targetX * cosA - targetY * sinA;
+        final double rotatedY = targetX * sinA + targetY * cosA;
+
         particle.currentTargetPosition = Offset(rotatedX, rotatedY);
       }
+    } else {
+      // If not animating, ensure audio level is reset (optional, but good practice)
+      _smoothedAudioLevel = 0.0;
+      _currentAudioLevel = 0.0;
     }
 
     for (var particle in _particles) {
@@ -338,8 +367,59 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       final double jitterY = (_random.nextDouble() - 0.5) * 2 * _jitterStrength;
       particle.position += Offset(jitterX, jitterY);
     }
+    // --- Color Update Logic ---
+    final Color targetBaseColor = (_appState == AppState.speaking_tts)
+        ? Colors.blue // Model speaking
+        : Colors.white; // User speaking or idle/processing
+
+    for (var particle in _particles) {
+      // Get the original opacity (assuming it's stored or can be derived)
+      // For simplicity, let's assume the initial color's opacity is the base.
+      // If not stored separately, we might need to adjust initialization.
+      // Let's assume particle.color.opacity holds the intended base opacity.
+      final double baseOpacity = particle.color.opacity; // Use current opacity as base
+
+      // Calculate the final target color with the base opacity
+      final Color finalTargetColor = targetBaseColor.withOpacity(baseOpacity);
+
+      // Smoothly interpolate the particle's color towards the target
+      particle.color = Color.lerp(particle.color, finalTargetColor, 0.1)!; // Adjust 0.1 for fade speed
+    }
+    // --- End Color Update Logic ---
+
     setState(() {});
   }
+
+  // --- RMS Calculation for Visualizer ---
+  // Calculates RMS (Root Mean Square) of audio data, normalized to 0.0-1.0 (approx)
+  double _calculateRMS(Uint8List audioData) {
+    double sum = 0;
+    if (audioData.isEmpty) return 0.0;
+
+    // Assuming 16-bit PCM mono
+    int samples = audioData.lengthInBytes ~/ 2;
+    if (samples == 0) return 0.0;
+
+    for (int i = 0; i < audioData.lengthInBytes; i += 2) {
+      // Combine bytes for 16-bit sample (little-endian)
+      int sample = (audioData[i + 1] << 8) | audioData[i];
+      // Convert to signed 16-bit
+      if (sample > 32767) sample -= 65536;
+      // Normalize sample to -1.0 to 1.0
+      double normalizedSample = sample / 32768.0;
+      // Square the sample for RMS calculation
+      sum += normalizedSample * normalizedSample;
+    }
+    // Calculate mean square
+    double meanSquare = sum / samples;
+    // Calculate RMS and clamp to avoid issues with sqrt(negative) if sum is tiny negative due to float precision
+    double rms = sqrt(max(0.0, meanSquare));
+
+    // Basic amplification and clamping - adjust amplification factor as needed
+    double amplification = 5.0; // Increase this to make visualizer more sensitive
+    return (rms * amplification).clamp(0.0, 1.0);
+  }
+  // --- End RMS Calculation ---
   // --- End Copied Visualiser Methods ---
 
   // --- Added Methods from _TtsViewState (mic_stream based) ---
@@ -545,12 +625,22 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     debugPrint("Listening stopped.");
   }
 
-  // Process incoming audio chunks - Now just sends to Deepgram
+  // Process incoming audio chunks - Now calculates RMS and sends to Deepgram
   void _handleMicData(Uint8List data) {
-    if (!mounted || !_isAnimating || !_sttService.isConnected)
-      return; // Only process if animating and connected
+    if (!mounted || !_isAnimating) return; // Only process if animating
 
-    // Barge-in logic
+    // --- Calculate and Smooth Audio Level for Visualizer ---
+    if (_appState == AppState.listening) {
+      // Only update level when actively listening
+      _currentAudioLevel = _calculateRMS(data);
+      // Apply exponential smoothing
+      _smoothedAudioLevel = _smoothingFactor * _currentAudioLevel +
+          (1 - _smoothingFactor) * _smoothedAudioLevel;
+      // No need to call setState here, _updateParticles runs constantly
+    }
+    // --- End Audio Level Calculation ---
+
+    // Barge-in logic (Check if speaking TTS)
     if (_appState == AppState.speaking_tts) {
       // Calculate RMS just for barge-in detection
       double rms = _calculateRMSForBargeIn(data);
@@ -575,8 +665,8 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       return;
     }
 
-    // Send audio data directly to Deepgram service if listening
-    if (_appState == AppState.listening) {
+    // Send audio data directly to Deepgram service if listening AND connected
+    if (_appState == AppState.listening && _sttService.isConnected) {
       _sttService.sendAudio(data);
     }
   }
@@ -713,44 +803,56 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
     // Log update was moved to _handleDeepgramResponse
 
     // --- 2. Capture Image (Screenshot or Camera Photo) ---
-     debugPrint("[CaptureImage] Checking image capture conditions...");
-     debugPrint("[CaptureImage] _isCameraEnabled: $_isCameraEnabled");
-    if (_isCameraEnabled) { // Check if the master toggle is enabled
-       debugPrint("[CaptureImage] Image capture is enabled by toggle.");
-       debugPrint("[CaptureImage] _selectedRecordingOption: $_selectedRecordingOption");
+    debugPrint("[CaptureImage] Checking image capture conditions...");
+    debugPrint("[CaptureImage] _isCameraEnabled: $_isCameraEnabled");
+    if (_isCameraEnabled) {
+      // Check if the master toggle is enabled
+      debugPrint("[CaptureImage] Image capture is enabled by toggle.");
+      debugPrint(
+          "[CaptureImage] _selectedRecordingOption: $_selectedRecordingOption");
       if (_selectedRecordingOption == RecordingOption.camera) {
         // --- Capture Camera Photo ---
-         debugPrint("[CaptureImage] Camera option selected.");
-         debugPrint("[CaptureImage] _isCameraInitialized: $_isCameraInitialized");
-         debugPrint("[CaptureImage] _cameraController != null: ${_cameraController != null}");
-         if (_cameraController != null) {
-            debugPrint("[CaptureImage] _cameraController.value.isTakingPicture: ${_cameraController!.value.isTakingPicture}");
-         }
+        debugPrint("[CaptureImage] Camera option selected.");
+        debugPrint(
+            "[CaptureImage] _isCameraInitialized: $_isCameraInitialized");
+        debugPrint(
+            "[CaptureImage] _cameraController != null: ${_cameraController != null}");
+        if (_cameraController != null) {
+          debugPrint(
+              "[CaptureImage] _cameraController.value.isTakingPicture: ${_cameraController!.value.isTakingPicture}");
+        }
 
-        if (_isCameraInitialized && _cameraController != null && !_cameraController!.value.isTakingPicture) {
+        if (_isCameraInitialized &&
+            _cameraController != null &&
+            !_cameraController!.value.isTakingPicture) {
           try {
             debugPrint("[CaptureImage] Attempting to capture camera photo...");
             final XFile imageFile = await _cameraController!.takePicture();
-             debugPrint("[CaptureImage] takePicture() completed.");
-             if (!mounted || !_isAnimating) {
-                debugPrint("[CaptureImage] Component unmounted or animation stopped after takePicture(), aborting image read.");
-                return;
-             }
+            debugPrint("[CaptureImage] takePicture() completed.");
+            if (!mounted || !_isAnimating) {
+              debugPrint(
+                  "[CaptureImage] Component unmounted or animation stopped after takePicture(), aborting image read.");
+              return;
+            }
             imageBytes = await imageFile.readAsBytes();
-            debugPrint('[CaptureImage] Camera photo captured successfully (${imageBytes.lengthInBytes} bytes).');
+            debugPrint(
+                '[CaptureImage] Camera photo captured successfully (${imageBytes.lengthInBytes} bytes).');
           } on CameraException catch (e) {
-             debugPrint('[CaptureImage] Error capturing camera photo: ${e.code} - ${e.description}');
-             // Proceed without image
+            debugPrint(
+                '[CaptureImage] Error capturing camera photo: ${e.code} - ${e.description}');
+            // Proceed without image
           } catch (e) {
-             debugPrint('[CaptureImage] Unexpected error capturing camera photo: $e');
-             // Proceed without image
+            debugPrint(
+                '[CaptureImage] Unexpected error capturing camera photo: $e');
+            // Proceed without image
           }
         } else {
-           debugPrint('[CaptureImage] Camera not ready or already taking picture, skipping photo capture.');
+          debugPrint(
+              '[CaptureImage] Camera not ready or already taking picture, skipping photo capture.');
         }
       } else {
         // --- Capture Screenshot ---
-         debugPrint("[CaptureImage] Screen Recording option selected.");
+        debugPrint("[CaptureImage] Screen Recording option selected.");
         try {
           debugPrint("[CaptureImage] Attempting to capture screenshot...");
           imageBytes = await _screenshotController.capture();
@@ -768,10 +870,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         }
       }
     } else {
-       debugPrint("[CaptureImage] Image capture disabled by toggle.");
-       // imageBytes remains null
+      debugPrint("[CaptureImage] Image capture disabled by toggle.");
+      // imageBytes remains null
     }
-
 
     // --- 3. Generate Content with Gemini Pro ---
     // State should already be processing_gemini (set in _handleDeepgramResponse)
@@ -782,14 +883,16 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
       try {
         if (imageBytes != null) {
           // Image (screenshot or photo) available
-           debugPrint("[GeminiCall] Calling Gemini with image (${imageBytes.lengthInBytes} bytes)...");
+          debugPrint(
+              "[GeminiCall] Calling Gemini with image (${imageBytes.lengthInBytes} bytes)...");
           geminiResponseText = await _geminiProService.generateContentWithImage(
             textPrompt: transcription,
             imageBytes: imageBytes,
           );
         } else {
           // No image available (disabled, failed capture, or text-only mode needed)
-          debugPrint("[GeminiCall] Calling Gemini without image (text-only fallback)...");
+          debugPrint(
+              "[GeminiCall] Calling Gemini without image (text-only fallback)...");
           // TODO: Implement or confirm text-only Gemini call if desired
           // For now, we'll let geminiResponseText remain null if no image,
           // leading to the fallback logic below.
