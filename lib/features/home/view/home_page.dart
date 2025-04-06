@@ -57,7 +57,7 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   final double _damping = 0.9; // Slows down particles (Reduced for less bounce)
   double _rotationAngle = 0.0; // Current rotation angle for targets
   final double _rotationSpeed = 0.005; // Speed of target rotation
-  final double _jitterStrength = 0.15; // How much random jitter to add
+  final double _jitterStrength = 0.2; // How much random jitter to add
   final Random _random = Random(); // Random number generator for jitter
   bool _isAnimating = false; // Start in static state
   final double _initialRingRadiusFactor = 0.8; // How far out the initial ring is
@@ -138,34 +138,40 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
   void _updateParticles() {
     // Use the stored center if available
     final Offset? currentCenter = _center;
-    // Only update if animating, mounted, and center is known
-    if (!mounted || !_isAnimating || currentCenter == null) return;
+    // Update only if mounted and center is known
+    if (!mounted || currentCenter == null) return; // <-- Changed condition
 
-    // Update rotation angle
-    _rotationAngle += _rotationSpeed;
+    // Only update rotation angle and rotate targets if animating
+    if (_isAnimating) {
+      _rotationAngle += _rotationSpeed; // <-- Moved inside if
 
+      for (var particle in _particles) {
+        // Rotate the *final* orbit target position
+        final double cosA = cos(_rotationAngle);
+        final double sinA = sin(_rotationAngle);
+        final double rotatedX = particle.finalOrbitTargetPosition.dx * cosA - particle.finalOrbitTargetPosition.dy * sinA;
+        final double rotatedY = particle.finalOrbitTargetPosition.dx * sinA + particle.finalOrbitTargetPosition.dy * cosA;
+        // Update the current target to be the rotated final position
+        particle.currentTargetPosition = Offset(rotatedX, rotatedY); // <-- Moved inside if
+      }
+    }
+    // --- Physics calculations now happen outside the _isAnimating check ---
     for (var particle in _particles) {
-      // Rotate the *final* orbit target position
-      final double cosA = cos(_rotationAngle);
-      final double sinA = sin(_rotationAngle);
-      final double rotatedX = particle.finalOrbitTargetPosition.dx * cosA - particle.finalOrbitTargetPosition.dy * sinA;
-      final double rotatedY = particle.finalOrbitTargetPosition.dx * sinA + particle.finalOrbitTargetPosition.dy * cosA;
-      // Update the current target to be the rotated final position
-      particle.currentTargetPosition = Offset(rotatedX, rotatedY);
-
       // Calculate vector from current position to the *current target* position (relative to center)
+      // Note: particle.currentTargetPosition is now either the rotated final position (if animating)
+      // or the initial ring position (if returning to ring)
       final Offset targetVector =
           (currentCenter + particle.currentTargetPosition) - particle.position;
       // Attraction force towards the current target
       Offset attractionForce = targetVector * _attractionStrength;
 
+      // Repulsion logic remains the same (only active if _touchPosition is not null)
       Offset repulsionForce = Offset.zero;
-      if (_touchPosition != null) {
+      if (_isAnimating && _touchPosition != null) { // Only allow repulsion when animating
         final Offset touchVector = particle.position - _touchPosition!;
         final double distance = touchVector.distance;
 
         if (distance < _repulsionRadius && distance > 0) {
-          // Force is stronger closer to the touch point, inversely proportional to distance
           final double strength =
               _repulsionStrength * (1.0 - distance / _repulsionRadius);
           repulsionForce =
@@ -212,8 +218,9 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
           },
         ),
         title: const Text(
-          'Altruist',
-          style: TextStyle(color: accentColor, fontWeight: FontWeight.bold),
+          'altruist',
+          style: TextStyle(fontFamily: 'Alliance No. 1', color: accentColor, fontWeight: FontWeight.w500),
+
         ),
         centerTitle: true,
         actions: [
@@ -378,15 +385,27 @@ class _HomePageState extends State<HomePage> with TickerProviderStateMixin {
         });
 
         return GestureDetector(
-           // Activate animation on tap near center if not already animating
            onTapDown: (details) {
-             if (!_isAnimating && _center != null) { // Check _center is not null
+             if (_center == null) return; // Need center to calculate distance
+
+             if (_isAnimating) {
+               // If animating, tap anywhere to deactivate and return to ring
+               setState(() {
+                 _isAnimating = false;
+                 _touchPosition = null; // Stop repulsion on deactivation
+                 // Target the initial ring position
+                 for (var p in _particles) {
+                   p.currentTargetPosition = p.initialRingPosition;
+                 }
+               });
+             } else {
+               // If not animating, tap near center to activate
                final tapPos = details.localPosition;
-               final distanceToCenter = (tapPos - _center!).distance; // Use stored _center
+               final distanceToCenter = (tapPos - _center!).distance;
                if (distanceToCenter < _activationTapRadius) {
                  setState(() {
                    _isAnimating = true;
-                   // Trigger the transition: tell particles to move to their final orbit
+                   // Target the final orbit position (will be rotated in _updateParticles)
                    for (var p in _particles) {
                      p.currentTargetPosition = p.finalOrbitTargetPosition;
                    }

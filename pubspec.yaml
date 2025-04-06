@@ -35,3 +35,11 @@ flutter:
   # Add these lines:
   assets:
     - assets/icons/
+    - assets/fonts/
+
+  fonts:
+    - family: Alliance No. 1
+      fonts:
+        - asset: assets/fonts/alliance-no-1-regular.woff
+        - asset: assets/fonts/alliance-no-1-medium.woff
+          weight: 500 # Medium weight
