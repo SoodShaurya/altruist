@@ -28,7 +28,7 @@ dependencies:
   screenshot: ^3.0.0
   http: ^1.3.0
   mic_stream: ^0.7.2
-  web_socket_channel: ^2.4.0 # Added for Deepgram
+  web_socket_channel: ^3.0.2 # Added for Deepgram
   camera: ^0.11.0 # Added for camera functionality
   flutter_sound: ^9.28.0
 
