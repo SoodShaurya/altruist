@@ -24,7 +24,7 @@ dependencies:
   path_provider: ^2.1.5
   permission_handler: ^11.4.0
   # google_speech: ^2.2.0 # Replaced by Deepgram
-  google_generative_ai: ^0.4.6
+  google_generative_ai: ^0.4.7
   screenshot: ^3.0.0
   http: ^1.3.0
   mic_stream: ^0.7.2
