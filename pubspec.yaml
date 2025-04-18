@@ -19,7 +19,7 @@ dependencies:
   moon_design: ^1.1.0
   shared_preferences: ^2.5.3
   flutter_neumorphic: ^3.2.0
-  flutter_svg: ^2.0.10+1 # Add this line (check for latest version if needed)
+  flutter_svg: ^2.1.0 # Add this line (check for latest version if needed)
   sliding_up_panel: ^2.0.0+1 # Add this line (check for latest version if needed)
   path_provider: ^2.1.5
   permission_handler: ^11.4.0
